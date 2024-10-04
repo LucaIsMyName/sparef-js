@@ -2,7 +2,7 @@
 
 ## install
 
-`npm install hrefjs`
+`npm install sparef-js`
 
 ## use
 
