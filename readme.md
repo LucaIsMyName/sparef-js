@@ -1,18 +1,4 @@
-# `href.js`
-
-## cli
-
-### Build
-
-`npm run build`
-
-This created a `dist/` Directory
-
-### Tests
-`npm test`
-`npm test -- --watch`
-
-
+# `sparef-js`
 
 ## install
 
