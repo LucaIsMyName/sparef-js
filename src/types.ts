@@ -1,20 +1,32 @@
 // src/types.ts
 
+/**
+ * Options for prefetching links.
+ */
 export interface PrefetchOptions {
   active: boolean;
   event: string;
   delay: number;
 }
 
+/**
+ * Styles for a transition animation.
+ */
 export interface TransitionStyles {
   [key: string]: string | number;
 }
 
+/**
+ * An animation object for transitioning between two states.
+ */
 export interface TransitionAnimation {
   from: TransitionStyles | any;
   to: TransitionStyles | any;
 }
 
+/**
+ * Options for transitioning between pages.
+ */
 export interface TransitionOptions {
   duration: number;
   delay: number;

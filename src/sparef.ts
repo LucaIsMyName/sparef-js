@@ -28,6 +28,10 @@ const defaultOptions: SparefOptions = {
   },
 };
 
+/**
+ * 
+ * @description Set up SPA transitions and prefetching.
+ */
 export function sparef(selector: string | string[], options: Partial<SparefOptions> = {}): void {
   const mergedOptions = applyDefaults(options, defaultOptions);
   console.log("Merged options:", mergedOptions); // Add this line

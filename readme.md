@@ -1,7 +1,7 @@
 # `sparef-js`
 
 `sparef-js` is simple and small JS library that turns a multi-page app into a single-page app
-via CSS view transition and a optional prefetch API built in.
+via CSS `::view-transitions` and a optional prefetch HTML API built in.
 
 ## install
 

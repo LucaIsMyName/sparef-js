@@ -3,6 +3,10 @@
 import { TransitionOptions, TransitionAnimation, TransitionStyles } from "./types";
 import { kebabCase } from "./utils";
 
+/**
+ * @description Set up 
+ * transition between pages.
+ */
 declare global {
   interface Document {
     startViewTransition?: (callback: () => void) => {
@@ -15,6 +19,10 @@ declare global {
 
 let styleCounter = 0;
 
+/**
+ * @description Set up 
+ * transition between pages.
+ */
 export function setupTransition(container: Element, options: TransitionOptions, animateFunction: (keyframes: Keyframe[], options: KeyframeAnimationOptions) => Animation = (el, opts) => container.animate(el, opts)): void {
   console.log("Setting up transition with options:", options);
 
@@ -36,6 +44,10 @@ export function setupTransition(container: Element, options: TransitionOptions, 
   });
 }
 
+/**
+ * @description Generate a CSS style 
+ * string from a  transition animation object.
+ */
 export function generateStyleString(animation: TransitionAnimation): { from: string; to: string } {
   function styleObjectToString(obj: Record<string, any>): string {
     return Object.entries(obj)
@@ -54,6 +66,11 @@ export function generateStyleString(animation: TransitionAnimation): { from: str
   };
 }
 
+/**
+ * 
+ * @description Add CSS styles 
+ * for a view transition animation.
+ */
 function addViewTransitionCSS(container: Element, options: TransitionOptions): string {
   const outStyles = generateStyleString(options.out);
   const inStyles = generateStyleString(options.in);
@@ -94,6 +111,11 @@ function addViewTransitionCSS(container: Element, options: TransitionOptions): s
   return styleId;
 }
 
+/**
+ * 
+ * @description Remove a style 
+ * tag from the DOM.
+ */
 function removeStyle(styleId: string): void {
   const style = document.getElementById(styleId);
   if (style) {
@@ -101,6 +123,11 @@ function removeStyle(styleId: string): void {
   }
 }
 
+/**
+ * 
+ * @description Perform a custom 
+ * view transition animation. 
+ */
 async function performViewTransition(href: string, container: Element, options: TransitionOptions, animateFunction: (keyframes: Keyframe[], options: KeyframeAnimationOptions) => Animation): Promise<void> {
   try {
     const styleId = addViewTransitionCSS(container, options);
@@ -115,6 +142,11 @@ async function performViewTransition(href: string, container: Element, options: 
   }
 }
 
+/**
+ * 
+ * @description Perform a fallback 
+ * transition animation. 
+ */
 async function performFallbackTransition(href: string, container: Element, options: TransitionOptions, animateFunction: (keyframes: Keyframe[], options: KeyframeAnimationOptions) => Animation): Promise<void> {
   const styleId = addViewTransitionCSS(container, options);
   const duration = options.duration;
@@ -144,6 +176,11 @@ async function performFallbackTransition(href: string, container: Element, optio
   console.log("Fallback Transition complete");
 }
 
+/**
+ * 
+ * @description Update the DOM 
+ * with new content. 
+ */
 async function updateDOM(href: string, container: Element, options: TransitionOptions, animateFunction: (keyframes: Keyframe[], options: KeyframeAnimationOptions) => Animation): Promise<void> {
   try {
     const response = await fetch(href);
@@ -170,6 +207,11 @@ async function updateDOM(href: string, container: Element, options: TransitionOp
   }
 }
 
+/**
+ * 
+ * @description Create a keyframe animation 
+ * object from a transition animation object.
+ */
 function createKeyframeAnimation(animOptions: TransitionAnimation, prefix: string): { keyframes: Keyframe[] } {
   return {
     keyframes: [

@@ -4,6 +4,9 @@ import { PrefetchOptions } from './types';
 
 const prefetchedLinks = new Set<string>();
 
+/**
+ * @description Set up prefetching of links.
+ */
 export function setupPrefetch(container: Element, options: PrefetchOptions): void {
   console.log("Setting up prefetch with options:", options);
   if (!options.active) return;
