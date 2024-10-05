@@ -126,7 +126,7 @@ async function $48b09cc005396437$var$performViewTransition(href, container, opti
         const styleId = $48b09cc005396437$var$addViewTransitionCSS(container, options);
         const transition = document.startViewTransition(()=>$48b09cc005396437$var$updateDOM(href, container, options, animateFunction));
         await transition.finished;
-        // removeStyle(styleId);
+        $48b09cc005396437$var$removeStyle(styleId);
         console.log("Custom Transition complete", options);
     } catch (error) {
         console.error("View transition failed:", error);
