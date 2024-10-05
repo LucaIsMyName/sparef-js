@@ -19,11 +19,13 @@ export interface TransitionOptions {
   duration: number;
   delay: number;
   timeline: 'sequential' | 'parallel';
+  easing: string;
+  iterations: number | 'infinite';
   out: TransitionAnimation;
   in: TransitionAnimation;
 }
 
-export interface HrefOptions {
+export interface SparefOptions {
   prefetch: PrefetchOptions;
   transition: TransitionOptions;
 }

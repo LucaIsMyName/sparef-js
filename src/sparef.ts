@@ -1,41 +1,48 @@
-// src/href.ts
+// src/sparef.ts
 
-import { setupPrefetch } from './prefetch';
-import { setupTransition } from './transition';
-import { applyDefaults } from './utils';
-import { HrefOptions, PrefetchOptions, TransitionOptions } from './types';
+import { setupPrefetch } from "./prefetch";
+import { setupTransition } from "./transition";
+import { applyDefaults } from "./utils";
+import { SparefOptions, PrefetchOptions, TransitionOptions } from "./types";
 
-const defaultOptions: HrefOptions = {
+const defaultOptions: SparefOptions = {
   prefetch: {
     active: false,
-    event: 'mouseover',
-    delay: 0
+    event: "mouseover",
+    delay: 0,
   },
   transition: {
     duration: 300,
     delay: 0,
-    timeline: 'sequential',
+    timeline: "sequential",
+    easing: "ease",
+    iterations: 1,
     out: {
       from: { opacity: 1 },
-      to: { opacity: 0 }
+      to: { opacity: 0 },
     },
     in: {
       from: { opacity: 0 },
-      to: { opacity: 1 }
-    }
-  }
+      to: { opacity: 1 },
+    },
+  },
 };
-export function href(selector: string, options: Partial<HrefOptions> = {}): void {
-  const mergedOptions = applyDefaults(options, defaultOptions);
-  
-  const container = document.querySelector(selector);
-  if (!container) {
-    console.error(`No element found with selector: ${selector}`);
-    return;
-  }
 
-  setupPrefetch(container, mergedOptions.prefetch);
-  setupTransition(container, mergedOptions.transition);
+export function sparef(selector: string | string[], options: Partial<SparefOptions> = {}): void {
+  const mergedOptions = applyDefaults(options, defaultOptions);
+
+  const selectors = Array.isArray(selector) ? selector : [selector];
+
+  selectors.forEach((sel) => {
+    const container = document.querySelector(sel);
+    if (!container) {
+      console.error(`No element found with selector: ${sel}`);
+      return;
+    }
+
+    setupPrefetch(container, mergedOptions.prefetch);
+    setupTransition(container, mergedOptions.transition);
+  });
 }
 
-export default href;
+export default sparef;

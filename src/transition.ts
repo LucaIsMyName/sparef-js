@@ -1,7 +1,7 @@
 // src/transition.ts
 
-import { TransitionOptions, TransitionAnimation, TransitionStyles } from './types';
-import { kebabCase } from './utils';
+import { TransitionOptions, TransitionAnimation, TransitionStyles } from "./types";
+import { kebabCase } from "./utils";
 
 declare global {
   interface Document {
@@ -13,77 +13,166 @@ declare global {
   }
 }
 
-export function setupTransition(container: Element, options: TransitionOptions): void {
+let styleCounter = 0;
+
+export function setupTransition(container: Element, options: TransitionOptions, animateFunction: (keyframes: Keyframe[], options: KeyframeAnimationOptions) => Animation = (el, opts) => container.animate(el, opts)): void {
   const links = container.querySelectorAll('a[href^="/"], a[href^="./"], a[href^="../"]');
 
-  links.forEach(link => {
-    link.addEventListener('click', (e) => {
+  links.forEach((link) => {
+    link.addEventListener("click", (e) => {
       e.preventDefault();
-      const href = link.getAttribute('href');
-      
+      const href = link.getAttribute("href");
+
       if (href) {
         if (document.startViewTransition) {
-          performViewTransition(href, options);
+          performViewTransition(href, container, options, animateFunction);
         } else {
-          performFallbackTransition(href, options);
+          performFallbackTransition(href, container, options, animateFunction);
         }
       }
     });
   });
 }
 
-async function performViewTransition(href: string, options: TransitionOptions): Promise<void> {
+export function generateStyleString(animation: TransitionAnimation): { from: string; to: string } {
+  const from = Object.entries(animation.from)
+    .map(([key, value]) => `${kebabCase(key)}: ${value};`)
+    .join(" ");
+  const to = Object.entries(animation.to)
+    .map(([key, value]) => `${kebabCase(key)}: ${value};`)
+    .join(" ");
+
+  return { from, to };
+}
+
+function addViewTransitionCSS(container: Element, options: TransitionOptions): string {
+  const outStyles = generateStyleString(options.out);
+  const inStyles = generateStyleString(options.in);
+  const styleId = `sparef-style-${styleCounter++}`;
+
+  const css = `
+    ::view-transition-old(${container.tagName.toLowerCase()}),
+    ::view-transition-new(${container.tagName.toLowerCase()}) {
+      animation-duration: ${options.duration}ms;
+      animation-timing-function: ${options.easing};
+      animation-iteration-count: ${options.iterations};
+    }
+
+    ::view-transition-old(${container.tagName.toLowerCase()}) {
+      animation-name: sparef_fade-out-${styleId};
+    }
+
+    ::view-transition-new(${container.tagName.toLowerCase()}) {
+      animation-name: sparef_fade-in-${styleId};
+    }
+
+    @keyframes sparef_fade-out-${styleId} {
+      from { ${outStyles.from} }
+      to { ${outStyles.to} }
+    }
+
+    @keyframes sparef_fade-in-${styleId} {
+      from { ${inStyles.from} }
+      to { ${inStyles.to} }
+    }
+  `;
+
+  const style = document.createElement("style");
+  style.id = styleId;
+  style.textContent = css;
+  document.head.appendChild(style);
+
+  return styleId;
+}
+
+function removeStyle(styleId: string): void {
+  const style = document.getElementById(styleId);
+  if (style) {
+    style.remove();
+  }
+}
+
+async function performViewTransition(href: string, container: Element, options: TransitionOptions, animateFunction: (keyframes: Keyframe[], options: KeyframeAnimationOptions) => Animation): Promise<void> {
   try {
-    const transition = document.startViewTransition!(() => {
-      window.location.href = href;
-    });
+    const styleId = addViewTransitionCSS(container, options);
+    const transition = document.startViewTransition!(() => updateDOM(href, container, options, animateFunction));
 
     await transition.finished;
+    removeStyle(styleId);
+    console.log("Custom Transition complete");
   } catch (error) {
-    console.error('View transition failed:', error);
+    console.error("View transition failed:", error);
     window.location.href = href;
   }
 }
 
-function performFallbackTransition(href: string, options: TransitionOptions): void {
+async function performFallbackTransition(href: string, container: Element, options: TransitionOptions, animateFunction: (keyframes: Keyframe[], options: KeyframeAnimationOptions) => Animation): Promise<void> {
+  const styleId = addViewTransitionCSS(container, options);
   const duration = options.duration;
-  const outAnim = createKeyframeAnimation(options.out, 'out');
-  const inAnim = createKeyframeAnimation(options.in, 'in');
+  const outAnim = createKeyframeAnimation(options.out, `out-${styleId}`);
+  const inAnim = createKeyframeAnimation(options.in, `in-${styleId}`);
 
-  const outAnimation = document.documentElement.animate(outAnim.keyframes, {
-    duration: options.timeline === 'sequential' ? duration / 2 : duration,
-    easing: 'ease-in-out',
+  const outAnimation = animateFunction(outAnim.keyframes, {
+    duration: options.timeline === "sequential" ? duration / 2 : duration,
+    easing: options.easing,
+    iterations: 1,
+    fill: "forwards",
   });
 
-  outAnimation.onfinish = () => {
+  await outAnimation.finished;
+
+  await updateDOM(href, container, options, animateFunction);
+
+  const inAnimation = animateFunction(inAnim.keyframes, {
+    duration: options.timeline === "sequential" ? duration / 2 : duration,
+    easing: options.easing,
+    iterations: 1,
+    fill: "forwards",
+  });
+
+  await inAnimation.finished;
+  removeStyle(styleId);
+  console.log("Fallback Transition complete");
+}
+
+async function updateDOM(href: string, container: Element, options: TransitionOptions, animateFunction: (keyframes: Keyframe[], options: KeyframeAnimationOptions) => Animation): Promise<void> {
+  try {
+    const response = await fetch(href);
+    const html = await response.text();
+    const newDocument = new DOMParser().parseFromString(html, "text/html");
+
+    // Update the page title
+    document.title = newDocument.title;
+
+    // Update the specific container content
+    const newContent = newDocument.querySelector(container.tagName);
+    if (newContent) {
+      container.innerHTML = newContent.innerHTML;
+    }
+
+    // Update the URL without reloading the page
+    window.history.pushState({}, "", href);
+
+    // Re-attach event listeners to the new content
+    setupTransition(container, options, animateFunction);
+  } catch (error) {
+    console.error("Failed to update DOM:", error);
     window.location.href = href;
-    
-    document.documentElement.animate(inAnim.keyframes, {
-      duration: options.timeline === 'sequential' ? duration / 2 : duration,
-      easing: 'ease-in-out',
-    });
-  };
+  }
 }
 
 function createKeyframeAnimation(animOptions: TransitionAnimation, prefix: string): { keyframes: Keyframe[] } {
-  const fromStyles = Object.entries(animOptions.from as TransitionStyles).map(([key, value]) => `${kebabCase(key)}: ${value};`).join(' ');
-  const toStyles = Object.entries(animOptions.to as TransitionStyles).map(([key, value]) => `${kebabCase(key)}: ${value};`).join(' ');
-
-  const keyframes = `
-    @keyframes ${prefix}-animation {
-      from { ${fromStyles} }
-      to { ${toStyles} }
-    }
-  `;
-
-  const style = document.createElement('style');
-  style.textContent = keyframes;
-  document.head.appendChild(style);
+  const fromStyles = Object.entries(animOptions.from as TransitionStyles)
+    .map(([key, value]) => `${kebabCase(key)}: ${value};`)
+    .join(" ");
+  const toStyles = Object.entries(animOptions.to as TransitionStyles)
+    .map(([key, value]) => `${kebabCase(key)}: ${value};`)
+    .join(" ");
 
   return {
     keyframes: [
-      { [prefix]: '0%' },
-      { [prefix]: '100%' }
-    ]
+      { [prefix]: "0%", ...animOptions.from },
+      { [prefix]: "100%", ...animOptions.to },
+    ],
   };
 }
