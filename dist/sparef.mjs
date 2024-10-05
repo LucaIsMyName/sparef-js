@@ -2,6 +2,7 @@
 // src/prefetch.ts
 const $f29a4c4041b59d39$var$prefetchedLinks = new Set();
 function $f29a4c4041b59d39$export$71ab63dc1c645859(container, options) {
+    console.log("Setting up prefetch with options:", options);
     if (!options.active) return;
     const links = container.querySelectorAll('a[href^="/"], a[href^="./"], a[href^="../"]');
     links.forEach((link)=>{
@@ -42,6 +43,7 @@ function $fab42eb3dee39b5b$export$7428e6464c9e15e8(str) {
 
 let $8904ee15b0b5d17a$var$styleCounter = 0;
 function $8904ee15b0b5d17a$export$f6cf5dea3b94971d(container, options, animateFunction = (el, opts)=>container.animate(el, opts)) {
+    console.log("Setting up transition with options:", options);
     const links = container.querySelectorAll('a[href^="/"], a[href^="./"], a[href^="../"]');
     links.forEach((link)=>{
         link.addEventListener("click", (e)=>{
@@ -55,11 +57,15 @@ function $8904ee15b0b5d17a$export$f6cf5dea3b94971d(container, options, animateFu
     });
 }
 function $8904ee15b0b5d17a$export$a53971ec246c2bc4(animation) {
-    const from = Object.entries(animation.from).map(([key, value])=>`${(0, $fab42eb3dee39b5b$export$7428e6464c9e15e8)(key)}: ${value};`).join(" ");
-    const to = Object.entries(animation.to).map(([key, value])=>`${(0, $fab42eb3dee39b5b$export$7428e6464c9e15e8)(key)}: ${value};`).join(" ");
+    function styleObjectToString(obj) {
+        return Object.entries(obj).map(([key, value])=>{
+            if (typeof value === "object") return `${(0, $fab42eb3dee39b5b$export$7428e6464c9e15e8)(key)}: ${styleObjectToString(value)};`;
+            return `${(0, $fab42eb3dee39b5b$export$7428e6464c9e15e8)(key)}: ${value};`;
+        }).join(" ");
+    }
     return {
-        from: from,
-        to: to
+        from: styleObjectToString(animation.from),
+        to: styleObjectToString(animation.to)
     };
 }
 function $8904ee15b0b5d17a$var$addViewTransitionCSS(container, options) {
@@ -107,8 +113,8 @@ async function $8904ee15b0b5d17a$var$performViewTransition(href, container, opti
         const styleId = $8904ee15b0b5d17a$var$addViewTransitionCSS(container, options);
         const transition = document.startViewTransition(()=>$8904ee15b0b5d17a$var$updateDOM(href, container, options, animateFunction));
         await transition.finished;
-        $8904ee15b0b5d17a$var$removeStyle(styleId);
-        console.log("Custom Transition complete");
+        // removeStyle(styleId);
+        console.log("Custom Transition complete", options);
     } catch (error) {
         console.error("View transition failed:", error);
         window.location.href = href;
@@ -119,12 +125,13 @@ async function $8904ee15b0b5d17a$var$performFallbackTransition(href, container, 
     const duration = options.duration;
     const outAnim = $8904ee15b0b5d17a$var$createKeyframeAnimation(options.out, `out-${styleId}`);
     const inAnim = $8904ee15b0b5d17a$var$createKeyframeAnimation(options.in, `in-${styleId}`);
-    const outAnimation = animateFunction(outAnim.keyframes, {
+    const animationOptions = {
         duration: options.timeline === "sequential" ? duration / 2 : duration,
         easing: options.easing,
-        iterations: 1,
+        iterations: options.iterations === "infinite" ? Infinity : options.iterations,
         fill: "forwards"
-    });
+    };
+    const outAnimation = animateFunction(outAnim.keyframes, animationOptions);
     await outAnimation.finished;
     await $8904ee15b0b5d17a$var$updateDOM(href, container, options, animateFunction);
     const inAnimation = animateFunction(inAnim.keyframes, {
@@ -157,8 +164,6 @@ async function $8904ee15b0b5d17a$var$updateDOM(href, container, options, animate
     }
 }
 function $8904ee15b0b5d17a$var$createKeyframeAnimation(animOptions, prefix) {
-    const fromStyles = Object.entries(animOptions.from).map(([key, value])=>`${(0, $fab42eb3dee39b5b$export$7428e6464c9e15e8)(key)}: ${value};`).join(" ");
-    const toStyles = Object.entries(animOptions.to).map(([key, value])=>`${(0, $fab42eb3dee39b5b$export$7428e6464c9e15e8)(key)}: ${value};`).join(" ");
     return {
         keyframes: [
             {
@@ -182,10 +187,10 @@ const $883a9a8e248925a3$var$defaultOptions = {
         delay: 0
     },
     transition: {
-        duration: 300,
+        duration: 250,
         delay: 0,
-        timeline: "sequential",
-        easing: "ease",
+        timeline: "parallel",
+        easing: "ease-in-out",
         iterations: 1,
         out: {
             from: {
@@ -207,6 +212,7 @@ const $883a9a8e248925a3$var$defaultOptions = {
 };
 function $883a9a8e248925a3$export$c77bd49b7cb4348a(selector, options = {}) {
     const mergedOptions = (0, $fab42eb3dee39b5b$export$981532776ab2217e)(options, $883a9a8e248925a3$var$defaultOptions);
+    console.log("Merged options:", mergedOptions); // Add this line
     const selectors = Array.isArray(selector) ? selector : [
         selector
     ];
@@ -216,6 +222,7 @@ function $883a9a8e248925a3$export$c77bd49b7cb4348a(selector, options = {}) {
             console.error(`No element found with selector: ${sel}`);
             return;
         }
+        console.log("Setting up prefetch with options:", mergedOptions.prefetch); // Add this line
         (0, $f29a4c4041b59d39$export$71ab63dc1c645859)(container, mergedOptions.prefetch);
         (0, $8904ee15b0b5d17a$export$f6cf5dea3b94971d)(container, mergedOptions.transition);
     });

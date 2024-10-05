@@ -5,6 +5,7 @@ import { PrefetchOptions } from './types';
 const prefetchedLinks = new Set<string>();
 
 export function setupPrefetch(container: Element, options: PrefetchOptions): void {
+  console.log("Setting up prefetch with options:", options);
   if (!options.active) return;
 
   const links = container.querySelectorAll('a[href^="/"], a[href^="./"], a[href^="../"]');

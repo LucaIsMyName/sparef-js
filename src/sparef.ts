@@ -12,10 +12,10 @@ const defaultOptions: SparefOptions = {
     delay: 0,
   },
   transition: {
-    duration: 300,
+    duration: 250,
     delay: 0,
-    timeline: "sequential",
-    easing: "ease",
+    timeline: "parallel",
+    easing: "ease-in-out",
     iterations: 1,
     out: {
       from: { opacity: 1 },
@@ -30,6 +30,7 @@ const defaultOptions: SparefOptions = {
 
 export function sparef(selector: string | string[], options: Partial<SparefOptions> = {}): void {
   const mergedOptions = applyDefaults(options, defaultOptions);
+  console.log("Merged options:", mergedOptions); // Add this line
 
   const selectors = Array.isArray(selector) ? selector : [selector];
 
@@ -40,6 +41,7 @@ export function sparef(selector: string | string[], options: Partial<SparefOptio
       return;
     }
 
+    console.log("Setting up prefetch with options:", mergedOptions.prefetch); // Add this line
     setupPrefetch(container, mergedOptions.prefetch);
     setupTransition(container, mergedOptions.transition);
   });

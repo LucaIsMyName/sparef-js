@@ -7,6 +7,7 @@
     // src/prefetch.ts
     const prefetchedLinks = new Set();
     function setupPrefetch(container, options) {
+        console.log("Setting up prefetch with options:", options);
         if (!options.active)
             return;
         const links = container.querySelectorAll('a[href^="/"], a[href^="./"], a[href^="../"]');
@@ -50,6 +51,7 @@
     // src/transition.ts
     let styleCounter = 0;
     function setupTransition(container, options, animateFunction = (el, opts) => container.animate(el, opts)) {
+        console.log("Setting up transition with options:", options);
         const links = container.querySelectorAll('a[href^="/"], a[href^="./"], a[href^="../"]');
         links.forEach((link) => {
             link.addEventListener("click", (e) => {
@@ -67,13 +69,20 @@
         });
     }
     function generateStyleString(animation) {
-        const from = Object.entries(animation.from)
-            .map(([key, value]) => `${kebabCase(key)}: ${value};`)
-            .join(" ");
-        const to = Object.entries(animation.to)
-            .map(([key, value]) => `${kebabCase(key)}: ${value};`)
-            .join(" ");
-        return { from, to };
+        function styleObjectToString(obj) {
+            return Object.entries(obj)
+                .map(([key, value]) => {
+                if (typeof value === 'object') {
+                    return `${kebabCase(key)}: ${styleObjectToString(value)};`;
+                }
+                return `${kebabCase(key)}: ${value};`;
+            })
+                .join(" ");
+        }
+        return {
+            from: styleObjectToString(animation.from),
+            to: styleObjectToString(animation.to)
+        };
     }
     function addViewTransitionCSS(container, options) {
         const outStyles = generateStyleString(options.out);
@@ -123,7 +132,7 @@
             const transition = document.startViewTransition(() => updateDOM(href, container, options, animateFunction));
             await transition.finished;
             removeStyle(styleId);
-            console.log("Custom Transition complete");
+            console.log("Custom Transition complete", options);
         }
         catch (error) {
             console.error("View transition failed:", error);
@@ -135,12 +144,13 @@
         const duration = options.duration;
         const outAnim = createKeyframeAnimation(options.out, `out-${styleId}`);
         const inAnim = createKeyframeAnimation(options.in, `in-${styleId}`);
-        const outAnimation = animateFunction(outAnim.keyframes, {
+        const animationOptions = {
             duration: options.timeline === "sequential" ? duration / 2 : duration,
             easing: options.easing,
-            iterations: 1,
+            iterations: options.iterations === "infinite" ? Infinity : options.iterations,
             fill: "forwards",
-        });
+        };
+        const outAnimation = animateFunction(outAnim.keyframes, animationOptions);
         await outAnimation.finished;
         await updateDOM(href, container, options, animateFunction);
         const inAnimation = animateFunction(inAnim.keyframes, {
@@ -176,12 +186,6 @@
         }
     }
     function createKeyframeAnimation(animOptions, prefix) {
-        Object.entries(animOptions.from)
-            .map(([key, value]) => `${kebabCase(key)}: ${value};`)
-            .join(" ");
-        Object.entries(animOptions.to)
-            .map(([key, value]) => `${kebabCase(key)}: ${value};`)
-            .join(" ");
         return {
             keyframes: [
                 Object.assign({ [prefix]: "0%" }, animOptions.from),
@@ -198,10 +202,10 @@
             delay: 0,
         },
         transition: {
-            duration: 300,
+            duration: 250,
             delay: 0,
-            timeline: "sequential",
-            easing: "ease",
+            timeline: "parallel",
+            easing: "ease-in-out",
             iterations: 1,
             out: {
                 from: { opacity: 1 },
@@ -215,6 +219,7 @@
     };
     function sparef(selector, options = {}) {
         const mergedOptions = applyDefaults(options, defaultOptions);
+        console.log("Merged options:", mergedOptions); // Add this line
         const selectors = Array.isArray(selector) ? selector : [selector];
         selectors.forEach((sel) => {
             const container = document.querySelector(sel);
@@ -222,6 +227,7 @@
                 console.error(`No element found with selector: ${sel}`);
                 return;
             }
+            console.log("Setting up prefetch with options:", mergedOptions.prefetch); // Add this line
             setupPrefetch(container, mergedOptions.prefetch);
             setupTransition(container, mergedOptions.transition);
         });

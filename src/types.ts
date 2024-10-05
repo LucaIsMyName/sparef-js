@@ -11,8 +11,8 @@ export interface TransitionStyles {
 }
 
 export interface TransitionAnimation {
-  from: TransitionStyles;
-  to: TransitionStyles;
+  from: TransitionStyles | any;
+  to: TransitionStyles | any;
 }
 
 export interface TransitionOptions {
