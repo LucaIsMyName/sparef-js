@@ -4,18 +4,26 @@
     (global = typeof globalThis !== 'undefined' ? globalThis : global || self, factory(global.Sparef = {}));
 })(this, (function (exports) { 'use strict';
 
-    // src/prefetch.ts
     const prefetchedLinks = new Set();
+    function isSameOrigin(href) {
+        try {
+            const url = new URL(href, window.location.origin);
+            return url.origin === window.location.origin;
+        }
+        catch (_a) {
+            return false;
+        }
+    }
     function setupPrefetch(container, options) {
         console.log("Setting up prefetch with options:", options);
         if (!options.active)
             return;
-        const links = container.querySelectorAll('a[href^="/"], a[href^="./"], a[href^="../"]');
+        const links = container.querySelectorAll('a[href^="/"], a[href^="./"], a[href^="../"], a[href^="http://"], a[href^="https://"]');
         links.forEach(link => {
             link.addEventListener(options.event, () => {
                 setTimeout(() => {
                     const href = link.getAttribute('href');
-                    if (href && !prefetchedLinks.has(href)) {
+                    if (href && !prefetchedLinks.has(href) && (options.sameOrigin === false || isSameOrigin(href))) {
                         const prefetchLink = document.createElement('link');
                         prefetchLink.rel = 'prefetch';
                         prefetchLink.href = href;
@@ -29,6 +37,15 @@
     }
 
     // src/utils.ts
+    /**
+     * @description This function takes two objects,
+     * options and defaults, and returns a new object
+     * with the default values applied to the options object.
+     * If a key exists in both objects, the value from
+     * the options object is used. If the value is an object,
+     * the function is called recursively to apply the defaults
+     * to the nested object.
+     */
     function applyDefaults(options, defaults) {
         const result = Object.assign({}, defaults);
         for (const key in options) {
@@ -44,12 +61,21 @@
         }
         return result;
     }
+    /**
+     * @description This function converts a string to
+     * kebab case by replacing all uppercase letters with a
+     * hyphen followed by the lowercase version of the letter.
+     */
     function kebabCase(str) {
         return str.replace(/[A-Z]/g, letter => `-${letter.toLowerCase()}`);
     }
 
     // src/transition.ts
     let styleCounter = 0;
+    /**
+     * @description Set up
+     * transition between pages.
+     */
     function setupTransition(container, options, animateFunction = (el, opts) => container.animate(el, opts)) {
         console.log("Setting up transition with options:", options);
         const links = container.querySelectorAll('a[href^="/"], a[href^="./"], a[href^="../"]');
@@ -68,6 +94,10 @@
             });
         });
     }
+    /**
+     * @description Generate a CSS style
+     * string from a  transition animation object.
+     */
     function generateStyleString(animation) {
         function styleObjectToString(obj) {
             return Object.entries(obj)
@@ -84,6 +114,11 @@
             to: styleObjectToString(animation.to)
         };
     }
+    /**
+     *
+     * @description Add CSS styles
+     * for a view transition animation.
+     */
     function addViewTransitionCSS(container, options) {
         const outStyles = generateStyleString(options.out);
         const inStyles = generateStyleString(options.in);
@@ -120,12 +155,22 @@
         document.head.appendChild(style);
         return styleId;
     }
+    /**
+     *
+     * @description Remove a style
+     * tag from the DOM.
+     */
     function removeStyle(styleId) {
         const style = document.getElementById(styleId);
         if (style) {
             style.remove();
         }
     }
+    /**
+     *
+     * @description Perform a custom
+     * view transition animation.
+     */
     async function performViewTransition(href, container, options, animateFunction) {
         try {
             const styleId = addViewTransitionCSS(container, options);
@@ -139,6 +184,11 @@
             window.location.href = href;
         }
     }
+    /**
+     *
+     * @description Perform a fallback
+     * transition animation.
+     */
     async function performFallbackTransition(href, container, options, animateFunction) {
         const styleId = addViewTransitionCSS(container, options);
         const duration = options.duration;
@@ -163,6 +213,11 @@
         removeStyle(styleId);
         console.log("Fallback Transition complete");
     }
+    /**
+     *
+     * @description Update the DOM
+     * with new content.
+     */
     async function updateDOM(href, container, options, animateFunction) {
         try {
             const response = await fetch(href);
@@ -185,6 +240,11 @@
             window.location.href = href;
         }
     }
+    /**
+     *
+     * @description Create a keyframe animation
+     * object from a transition animation object.
+     */
     function createKeyframeAnimation(animOptions, prefix) {
         return {
             keyframes: [
@@ -217,6 +277,10 @@
             },
         },
     };
+    /**
+     *
+     * @description Set up SPA transitions and prefetching.
+     */
     function sparef(selector, options = {}) {
         const mergedOptions = applyDefaults(options, defaultOptions);
         console.log("Merged options:", mergedOptions); // Add this line

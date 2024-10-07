@@ -7,6 +7,7 @@ export interface PrefetchOptions {
   active: boolean;
   event: string;
   delay: number;
+  sameOrigin?: boolean; // Add this line
 }
 
 /**

@@ -1,15 +1,22 @@
 // src/sparef.ts
-// src/prefetch.ts
 const $f29a4c4041b59d39$var$prefetchedLinks = new Set();
+function $f29a4c4041b59d39$var$isSameOrigin(href) {
+    try {
+        const url = new URL(href, window.location.origin);
+        return url.origin === window.location.origin;
+    } catch  {
+        return false;
+    }
+}
 function $f29a4c4041b59d39$export$71ab63dc1c645859(container, options) {
     console.log("Setting up prefetch with options:", options);
     if (!options.active) return;
-    const links = container.querySelectorAll('a[href^="/"], a[href^="./"], a[href^="../"]');
+    const links = container.querySelectorAll('a[href^="/"], a[href^="./"], a[href^="../"], a[href^="http://"], a[href^="https://"]');
     links.forEach((link)=>{
         link.addEventListener(options.event, ()=>{
             setTimeout(()=>{
                 const href = link.getAttribute("href");
-                if (href && !$f29a4c4041b59d39$var$prefetchedLinks.has(href)) {
+                if (href && !$f29a4c4041b59d39$var$prefetchedLinks.has(href) && (options.sameOrigin === false || $f29a4c4041b59d39$var$isSameOrigin(href))) {
                     const prefetchLink = document.createElement("link");
                     prefetchLink.rel = "prefetch";
                     prefetchLink.href = href;
@@ -25,7 +32,15 @@ function $f29a4c4041b59d39$export$71ab63dc1c645859(container, options) {
 
 // src/transition.ts
 // src/utils.ts
-function $fab42eb3dee39b5b$export$981532776ab2217e(options, defaults) {
+/**
+ * @description This function takes two objects, 
+ * options and defaults, and returns a new object 
+ * with the default values applied to the options object. 
+ * If a key exists in both objects, the value from 
+ * the options object is used. If the value is an object, 
+ * the function is called recursively to apply the defaults 
+ * to the nested object.
+ */ function $fab42eb3dee39b5b$export$981532776ab2217e(options, defaults) {
     const result = {
         ...defaults
     };
@@ -68,7 +83,11 @@ function $8904ee15b0b5d17a$export$a53971ec246c2bc4(animation) {
         to: styleObjectToString(animation.to)
     };
 }
-function $8904ee15b0b5d17a$var$addViewTransitionCSS(container, options) {
+/**
+ * 
+ * @description Add CSS styles 
+ * for a view transition animation.
+ */ function $8904ee15b0b5d17a$var$addViewTransitionCSS(container, options) {
     const outStyles = $8904ee15b0b5d17a$export$a53971ec246c2bc4(options.out);
     const inStyles = $8904ee15b0b5d17a$export$a53971ec246c2bc4(options.in);
     const styleId = `sparef-style-${$8904ee15b0b5d17a$var$styleCounter++}`;
@@ -104,11 +123,19 @@ function $8904ee15b0b5d17a$var$addViewTransitionCSS(container, options) {
     document.head.appendChild(style);
     return styleId;
 }
-function $8904ee15b0b5d17a$var$removeStyle(styleId) {
+/**
+ * 
+ * @description Remove a style 
+ * tag from the DOM.
+ */ function $8904ee15b0b5d17a$var$removeStyle(styleId) {
     const style = document.getElementById(styleId);
     if (style) style.remove();
 }
-async function $8904ee15b0b5d17a$var$performViewTransition(href, container, options, animateFunction) {
+/**
+ * 
+ * @description Perform a custom 
+ * view transition animation. 
+ */ async function $8904ee15b0b5d17a$var$performViewTransition(href, container, options, animateFunction) {
     try {
         const styleId = $8904ee15b0b5d17a$var$addViewTransitionCSS(container, options);
         const transition = document.startViewTransition(()=>$8904ee15b0b5d17a$var$updateDOM(href, container, options, animateFunction));
@@ -120,7 +147,11 @@ async function $8904ee15b0b5d17a$var$performViewTransition(href, container, opti
         window.location.href = href;
     }
 }
-async function $8904ee15b0b5d17a$var$performFallbackTransition(href, container, options, animateFunction) {
+/**
+ * 
+ * @description Perform a fallback 
+ * transition animation. 
+ */ async function $8904ee15b0b5d17a$var$performFallbackTransition(href, container, options, animateFunction) {
     const styleId = $8904ee15b0b5d17a$var$addViewTransitionCSS(container, options);
     const duration = options.duration;
     const outAnim = $8904ee15b0b5d17a$var$createKeyframeAnimation(options.out, `out-${styleId}`);
@@ -144,7 +175,11 @@ async function $8904ee15b0b5d17a$var$performFallbackTransition(href, container, 
     $8904ee15b0b5d17a$var$removeStyle(styleId);
     console.log("Fallback Transition complete");
 }
-async function $8904ee15b0b5d17a$var$updateDOM(href, container, options, animateFunction) {
+/**
+ * 
+ * @description Update the DOM 
+ * with new content. 
+ */ async function $8904ee15b0b5d17a$var$updateDOM(href, container, options, animateFunction) {
     try {
         const response = await fetch(href);
         const html = await response.text();
@@ -163,7 +198,11 @@ async function $8904ee15b0b5d17a$var$updateDOM(href, container, options, animate
         window.location.href = href;
     }
 }
-function $8904ee15b0b5d17a$var$createKeyframeAnimation(animOptions, prefix) {
+/**
+ * 
+ * @description Create a keyframe animation 
+ * object from a transition animation object.
+ */ function $8904ee15b0b5d17a$var$createKeyframeAnimation(animOptions, prefix) {
     return {
         keyframes: [
             {

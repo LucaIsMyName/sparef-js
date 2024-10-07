@@ -25,7 +25,8 @@ sparef('body', {
   prefetch: {
     active: true, // boolean
     event: 'DOMContentLoaded', // any JS Event
-    delay: 1000 // integer
+    delay: 1000 // integer (loads prefetch link 1s after pageload),
+    isSameOrigin: true, // default is "true", optionaly "false" or undefined/not set (=== true)
   },
   transition: {
     duration: 1000, // integer
@@ -36,7 +37,9 @@ sparef('body', {
     /**
      * 'in' and 'out' sets CSS keyframes,
      * write CSS keframes as a JS Object.
-     * Strings get converted from Camel to Kebab Case via sparef-js
+     * Strings get converted from Camel to Kebab Case 
+     * via sparef-js and set as temporary CSS animations
+     * in the DOM.
     */
     out: {
       from: { opacity: 1, backgroundColor: 'green' },
