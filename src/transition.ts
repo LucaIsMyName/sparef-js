@@ -4,7 +4,7 @@ import { TransitionOptions, TransitionAnimation, TransitionStyles } from "./type
 import { kebabCase } from "./utils";
 
 /**
- * @description Set up 
+ * @description Set up
  * transition between pages.
  */
 declare global {
@@ -18,12 +18,59 @@ declare global {
 }
 
 let styleCounter = 0;
+class MockAnimation implements Animation {
+  currentTime: number | null = 0;
+  effect: AnimationEffect | null = null;
+  id: string = "";
+  oncancel: ((this: Animation, ev: AnimationPlaybackEvent) => any) | null = null;
+  onfinish: ((this: Animation, ev: AnimationPlaybackEvent) => any) | null = null;
+  onremove: ((this: Animation, ev: Event) => any) | null = null;
+  pending: boolean = false;
+  playState: AnimationPlayState = "idle";
+  playbackRate: number = 1;
+  replaceState: AnimationReplaceState = "active";
+  startTime: number | null = 0;
+  timeline: AnimationTimeline | null = null;
 
+  // Implement finished and ready as getters
+  get finished(): Promise<Animation> {
+    return Promise.resolve(this);
+  }
+
+  get ready(): Promise<Animation> {
+    return Promise.resolve(this);
+  }
+
+  cancel(): void {}
+  commitStyles(): void {}
+  finish(): void {}
+  pause(): void {}
+  persist(): void {}
+  play(): void {}
+  reverse(): void {}
+  updatePlaybackRate(_playbackRate: number): void {}
+  addEventListener(_type: string, _listener: EventListenerOrEventListenerObject, _options?: boolean | AddEventListenerOptions): void {}
+  removeEventListener(_type: string, _listener: EventListenerOrEventListenerObject, _options?: boolean | EventListenerOptions): void {}
+  dispatchEvent(_event: Event): boolean {
+    return false;
+  }
+}
 /**
- * @description Set up 
+ * @description Set up
  * transition between pages.
  */
-export function setupTransition(container: Element, options: TransitionOptions, animateFunction: (keyframes: Keyframe[], options: KeyframeAnimationOptions) => Animation = (el, opts) => container.animate(el, opts)): void {
+export function setupTransition(
+  container: Element,
+  options: TransitionOptions,
+  animateFunction: (element: Element, keyframes: Keyframe[], options: KeyframeAnimationOptions) => Animation = (element, keyframes, options) => {
+    if (typeof element.animate === "function") {
+      return element.animate(keyframes, options);
+    } else {
+      // Fallback for environments where animate is not available (like jsdom)
+      return new MockAnimation();
+    }
+  }
+): void {
   console.log("Setting up transition with options:", options);
 
   const links = container.querySelectorAll('a[href^="/"], a[href^="./"], a[href^="../"]');
@@ -34,25 +81,40 @@ export function setupTransition(container: Element, options: TransitionOptions, 
       const href = link.getAttribute("href");
 
       if (href) {
-        if (document.startViewTransition) {
-          performViewTransition(href, container, options, animateFunction);
-        } else {
-          performFallbackTransition(href, container, options, animateFunction);
-        }
+        navigateTo(href, container, options, animateFunction);
       }
     });
   });
+
+  // Add popstate event listener for browser back/forward buttons
+  window.addEventListener("popstate", (event) => {
+    if (event.state && event.state.href) {
+      navigateTo(event.state.href, container, options, animateFunction, false);
+    }
+  });
+}
+
+async function navigateTo(href: string, container: Element, options: TransitionOptions, animateFunction: (element: Element, keyframes: Keyframe[], options: KeyframeAnimationOptions) => Animation, pushState: boolean = true): Promise<void> {
+  if (document.startViewTransition) {
+    await performViewTransition(href, container, options, animateFunction);
+  } else {
+    await performFallbackTransition(href, container, options, animateFunction);
+  }
+
+  if (pushState) {
+    history.pushState({ href }, "", href);
+  }
 }
 
 /**
- * @description Generate a CSS style 
+ * @description Generate a CSS style
  * string from a  transition animation object.
  */
 export function generateStyleString(animation: TransitionAnimation): { from: string; to: string } {
   function styleObjectToString(obj: Record<string, any>): string {
     return Object.entries(obj)
       .map(([key, value]) => {
-        if (typeof value === 'object') {
+        if (typeof value === "object") {
           return `${kebabCase(key)}: ${styleObjectToString(value)};`;
         }
         return `${kebabCase(key)}: ${value};`;
@@ -62,13 +124,13 @@ export function generateStyleString(animation: TransitionAnimation): { from: str
 
   return {
     from: styleObjectToString(animation.from),
-    to: styleObjectToString(animation.to)
+    to: styleObjectToString(animation.to),
   };
 }
 
 /**
- * 
- * @description Add CSS styles 
+ *
+ * @description Add CSS styles
  * for a view transition animation.
  */
 function addViewTransitionCSS(container: Element, options: TransitionOptions): string {
@@ -112,8 +174,8 @@ function addViewTransitionCSS(container: Element, options: TransitionOptions): s
 }
 
 /**
- * 
- * @description Remove a style 
+ *
+ * @description Remove a style
  * tag from the DOM.
  */
 function removeStyle(styleId: string): void {
@@ -124,11 +186,11 @@ function removeStyle(styleId: string): void {
 }
 
 /**
- * 
- * @description Perform a custom 
- * view transition animation. 
+ *
+ * @description Perform a custom
+ * view transition animation.
  */
-async function performViewTransition(href: string, container: Element, options: TransitionOptions, animateFunction: (keyframes: Keyframe[], options: KeyframeAnimationOptions) => Animation): Promise<void> {
+async function performViewTransition(href: string, container: Element, options: TransitionOptions, animateFunction: (element: Element, keyframes: Keyframe[], options: KeyframeAnimationOptions) => Animation): Promise<void> {
   try {
     const styleId = addViewTransitionCSS(container, options);
     const transition = document.startViewTransition!(() => updateDOM(href, container, options, animateFunction));
@@ -143,45 +205,55 @@ async function performViewTransition(href: string, container: Element, options: 
 }
 
 /**
- * 
- * @description Perform a fallback 
- * transition animation. 
+ *
+ * @description Perform a fallback
+ * transition animation.
  */
-async function performFallbackTransition(href: string, container: Element, options: TransitionOptions, animateFunction: (keyframes: Keyframe[], options: KeyframeAnimationOptions) => Animation): Promise<void> {
+async function performFallbackTransition(href: string, container: Element, options: TransitionOptions, animateFunction: (element: Element, keyframes: Keyframe[], options: KeyframeAnimationOptions) => Animation): Promise<void> {
   const styleId = addViewTransitionCSS(container, options);
-  const duration = options.duration;
-  const outAnim = createKeyframeAnimation(options.out, `out-${styleId}`);
-  const inAnim = createKeyframeAnimation(options.in, `in-${styleId}`);
-  const animationOptions: KeyframeAnimationOptions = {
-    duration: options.timeline === "sequential" ? duration / 2 : duration,
-    easing: options.easing,
-    iterations: options.iterations === "infinite" ? Infinity : options.iterations,
-    fill: "forwards",
-  };
-  const outAnimation = animateFunction(outAnim.keyframes, animationOptions);
+  try {
+    const duration = options.duration;
+    const outAnim = createKeyframeAnimation(options.out, `out-${styleId}`);
+    const inAnim = createKeyframeAnimation(options.in, `in-${styleId}`);
+    const animationOptions: KeyframeAnimationOptions = {
+      duration: options.timeline === "sequential" ? duration / 2 : duration,
+      easing: options.easing,
+      iterations: options.iterations === "infinite" ? Infinity : options.iterations,
+      fill: "forwards",
+    };
+    const outAnimation = animateFunction(container, outAnim.keyframes, animationOptions);
 
-  await outAnimation.finished;
+    if (outAnimation.finished) {
+      await outAnimation.finished;
+    } else {
+      await new Promise((resolve) => setTimeout(resolve, animationOptions.duration as number));
+    }
 
-  await updateDOM(href, container, options, animateFunction);
+    await updateDOM(href, container, options, animateFunction);
 
-  const inAnimation = animateFunction(inAnim.keyframes, {
-    duration: options.timeline === "sequential" ? duration / 2 : duration,
-    easing: options.easing,
-    iterations: 1,
-    fill: "forwards",
-  });
+    const inAnimation = animateFunction(container, inAnim.keyframes, {
+      duration: options.timeline === "sequential" ? duration / 2 : duration,
+      easing: options.easing,
+      iterations: 1,
+      fill: "forwards",
+    });
 
-  await inAnimation.finished;
-  removeStyle(styleId);
-  console.log("Fallback Transition complete");
+    if (inAnimation.finished) {
+      await inAnimation.finished;
+    } else {
+      await new Promise((resolve) => setTimeout(resolve, duration / 2));
+    }
+  } finally {
+    removeStyle(styleId);
+    console.log("Fallback Transition complete");
+  }
 }
 
 /**
- * 
- * @description Update the DOM 
- * with new content. 
+ * @description Update the DOM
+ * with new content.
  */
-async function updateDOM(href: string, container: Element, options: TransitionOptions, animateFunction: (keyframes: Keyframe[], options: KeyframeAnimationOptions) => Animation): Promise<void> {
+async function updateDOM(href: string, container: Element, options: TransitionOptions, animateFunction: (element: Element, keyframes: Keyframe[], options: KeyframeAnimationOptions) => Animation): Promise<void> {
   try {
     const response = await fetch(href);
     const html = await response.text();
@@ -196,9 +268,6 @@ async function updateDOM(href: string, container: Element, options: TransitionOp
       container.innerHTML = newContent.innerHTML;
     }
 
-    // Update the URL without reloading the page
-    window.history.pushState({}, "", href);
-
     // Re-attach event listeners to the new content
     setupTransition(container, options, animateFunction);
   } catch (error) {
@@ -208,8 +277,8 @@ async function updateDOM(href: string, container: Element, options: TransitionOp
 }
 
 /**
- * 
- * @description Create a keyframe animation 
+ *
+ * @description Create a keyframe animation
  * object from a transition animation object.
  */
 function createKeyframeAnimation(animOptions: TransitionAnimation, prefix: string): { keyframes: Keyframe[] } {
