@@ -10,6 +10,7 @@ const defaultOptions: SparefOptions = {
     active: false,
     event: "mouseover",
     delay: 0,
+    sameOrigin: true,
   },
   transition: {
     duration: 250,

@@ -70,19 +70,67 @@ function $9ba0f9a5c47c04f2$export$7428e6464c9e15e8(str) {
 
 
 let $48b09cc005396437$var$styleCounter = 0;
-function $48b09cc005396437$export$f6cf5dea3b94971d(container, options, animateFunction = (el, opts)=>container.animate(el, opts)) {
+class $48b09cc005396437$var$MockAnimation {
+    // Implement finished and ready as getters
+    get finished() {
+        return Promise.resolve(this);
+    }
+    get ready() {
+        return Promise.resolve(this);
+    }
+    cancel() {}
+    commitStyles() {}
+    finish() {}
+    pause() {}
+    persist() {}
+    play() {}
+    reverse() {}
+    updatePlaybackRate(_playbackRate) {}
+    addEventListener(_type, _listener, _options) {}
+    removeEventListener(_type, _listener, _options) {}
+    dispatchEvent(_event) {
+        return false;
+    }
+    constructor(){
+        this.currentTime = 0;
+        this.effect = null;
+        this.id = "";
+        this.oncancel = null;
+        this.onfinish = null;
+        this.onremove = null;
+        this.pending = false;
+        this.playState = "idle";
+        this.playbackRate = 1;
+        this.replaceState = "active";
+        this.startTime = 0;
+        this.timeline = null;
+    }
+}
+function $48b09cc005396437$export$f6cf5dea3b94971d(container, options, animateFunction = (element, keyframes, options)=>{
+    if (typeof element.animate === "function") return element.animate(keyframes, options);
+    else // Fallback for environments where animate is not available (like jsdom)
+    return new $48b09cc005396437$var$MockAnimation();
+}) {
     console.log("Setting up transition with options:", options);
     const links = container.querySelectorAll('a[href^="/"], a[href^="./"], a[href^="../"]');
     links.forEach((link)=>{
         link.addEventListener("click", (e)=>{
             e.preventDefault();
             const href = link.getAttribute("href");
-            if (href) {
-                if (document.startViewTransition) $48b09cc005396437$var$performViewTransition(href, container, options, animateFunction);
-                else $48b09cc005396437$var$performFallbackTransition(href, container, options, animateFunction);
-            }
+            if (href) $48b09cc005396437$var$navigateTo(href, container, options, animateFunction);
         });
     });
+    // Add popstate event listener for browser back/forward buttons
+    window.addEventListener("popstate", (event)=>{
+        if (event.state && event.state.href) $48b09cc005396437$var$navigateTo(event.state.href, container, options, animateFunction, false);
+    });
+}
+async function $48b09cc005396437$var$navigateTo(href, container, options, animateFunction, pushState = true) {
+    if (document.startViewTransition) await $48b09cc005396437$var$performViewTransition(href, container, options, animateFunction);
+    else await $48b09cc005396437$var$performFallbackTransition(href, container, options, animateFunction);
+    if (pushState) history.pushState({
+        href: href
+    }, "", href);
 }
 function $48b09cc005396437$export$a53971ec246c2bc4(animation) {
     function styleObjectToString(obj) {
@@ -97,8 +145,8 @@ function $48b09cc005396437$export$a53971ec246c2bc4(animation) {
     };
 }
 /**
- * 
- * @description Add CSS styles 
+ *
+ * @description Add CSS styles
  * for a view transition animation.
  */ function $48b09cc005396437$var$addViewTransitionCSS(container, options) {
     const outStyles = $48b09cc005396437$export$a53971ec246c2bc4(options.out);
@@ -137,17 +185,17 @@ function $48b09cc005396437$export$a53971ec246c2bc4(animation) {
     return styleId;
 }
 /**
- * 
- * @description Remove a style 
+ *
+ * @description Remove a style
  * tag from the DOM.
  */ function $48b09cc005396437$var$removeStyle(styleId) {
     const style = document.getElementById(styleId);
     if (style) style.remove();
 }
 /**
- * 
- * @description Perform a custom 
- * view transition animation. 
+ *
+ * @description Perform a custom
+ * view transition animation.
  */ async function $48b09cc005396437$var$performViewTransition(href, container, options, animateFunction) {
     try {
         const styleId = $48b09cc005396437$var$addViewTransitionCSS(container, options);
@@ -161,37 +209,41 @@ function $48b09cc005396437$export$a53971ec246c2bc4(animation) {
     }
 }
 /**
- * 
- * @description Perform a fallback 
- * transition animation. 
+ *
+ * @description Perform a fallback
+ * transition animation.
  */ async function $48b09cc005396437$var$performFallbackTransition(href, container, options, animateFunction) {
     const styleId = $48b09cc005396437$var$addViewTransitionCSS(container, options);
-    const duration = options.duration;
-    const outAnim = $48b09cc005396437$var$createKeyframeAnimation(options.out, `out-${styleId}`);
-    const inAnim = $48b09cc005396437$var$createKeyframeAnimation(options.in, `in-${styleId}`);
-    const animationOptions = {
-        duration: options.timeline === "sequential" ? duration / 2 : duration,
-        easing: options.easing,
-        iterations: options.iterations === "infinite" ? Infinity : options.iterations,
-        fill: "forwards"
-    };
-    const outAnimation = animateFunction(outAnim.keyframes, animationOptions);
-    await outAnimation.finished;
-    await $48b09cc005396437$var$updateDOM(href, container, options, animateFunction);
-    const inAnimation = animateFunction(inAnim.keyframes, {
-        duration: options.timeline === "sequential" ? duration / 2 : duration,
-        easing: options.easing,
-        iterations: 1,
-        fill: "forwards"
-    });
-    await inAnimation.finished;
-    $48b09cc005396437$var$removeStyle(styleId);
-    console.log("Fallback Transition complete");
+    try {
+        const duration = options.duration;
+        const outAnim = $48b09cc005396437$var$createKeyframeAnimation(options.out, `out-${styleId}`);
+        const inAnim = $48b09cc005396437$var$createKeyframeAnimation(options.in, `in-${styleId}`);
+        const animationOptions = {
+            duration: options.timeline === "sequential" ? duration / 2 : duration,
+            easing: options.easing,
+            iterations: options.iterations === "infinite" ? Infinity : options.iterations,
+            fill: "forwards"
+        };
+        const outAnimation = animateFunction(container, outAnim.keyframes, animationOptions);
+        if (outAnimation.finished) await outAnimation.finished;
+        else await new Promise((resolve)=>setTimeout(resolve, animationOptions.duration));
+        await $48b09cc005396437$var$updateDOM(href, container, options, animateFunction);
+        const inAnimation = animateFunction(container, inAnim.keyframes, {
+            duration: options.timeline === "sequential" ? duration / 2 : duration,
+            easing: options.easing,
+            iterations: 1,
+            fill: "forwards"
+        });
+        if (inAnimation.finished) await inAnimation.finished;
+        else await new Promise((resolve)=>setTimeout(resolve, duration / 2));
+    } finally{
+        $48b09cc005396437$var$removeStyle(styleId);
+        console.log("Fallback Transition complete");
+    }
 }
 /**
- * 
- * @description Update the DOM 
- * with new content. 
+ * @description Update the DOM
+ * with new content.
  */ async function $48b09cc005396437$var$updateDOM(href, container, options, animateFunction) {
     try {
         const response = await fetch(href);
@@ -202,8 +254,6 @@ function $48b09cc005396437$export$a53971ec246c2bc4(animation) {
         // Update the specific container content
         const newContent = newDocument.querySelector(container.tagName);
         if (newContent) container.innerHTML = newContent.innerHTML;
-        // Update the URL without reloading the page
-        window.history.pushState({}, "", href);
         // Re-attach event listeners to the new content
         $48b09cc005396437$export$f6cf5dea3b94971d(container, options, animateFunction);
     } catch (error) {
@@ -212,8 +262,8 @@ function $48b09cc005396437$export$a53971ec246c2bc4(animation) {
     }
 }
 /**
- * 
- * @description Create a keyframe animation 
+ *
+ * @description Create a keyframe animation
  * object from a transition animation object.
  */ function $48b09cc005396437$var$createKeyframeAnimation(animOptions, prefix) {
     return {
@@ -236,7 +286,8 @@ const $41d6d52d9d8f742f$var$defaultOptions = {
     prefetch: {
         active: false,
         event: "mouseover",
-        delay: 0
+        delay: 0,
+        sameOrigin: true
     },
     transition: {
         duration: 250,

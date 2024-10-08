@@ -16,7 +16,7 @@ declare global {
  * @description Set up
  * transition between pages.
  */
-export declare function setupTransition(container: Element, options: TransitionOptions, animateFunction?: (keyframes: Keyframe[], options: KeyframeAnimationOptions) => Animation): void;
+export declare function setupTransition(container: Element, options: TransitionOptions, animateFunction?: (element: Element, keyframes: Keyframe[], options: KeyframeAnimationOptions) => Animation): void;
 /**
  * @description Generate a CSS style
  * string from a  transition animation object.

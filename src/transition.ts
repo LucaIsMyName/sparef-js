@@ -66,7 +66,6 @@ export function setupTransition(
     if (typeof element.animate === "function") {
       return element.animate(keyframes, options);
     } else {
-      // Fallback for environments where animate is not available (like jsdom)
       return new MockAnimation();
     }
   }
@@ -85,24 +84,33 @@ export function setupTransition(
       }
     });
   });
-
   // Add popstate event listener for browser back/forward buttons
   window.addEventListener("popstate", (event) => {
     if (event.state && event.state.href) {
       navigateTo(event.state.href, container, options, animateFunction, false);
+    } else {
+      // If there's no state, assume it's a back navigation to the initial page
+      navigateTo(window.location.pathname, container, options, animateFunction, false);
     }
   });
 }
 
 async function navigateTo(href: string, container: Element, options: TransitionOptions, animateFunction: (element: Element, keyframes: Keyframe[], options: KeyframeAnimationOptions) => Animation, pushState: boolean = true): Promise<void> {
+  console.log(`navigateTo called with href: ${href}, pushState: ${pushState}`);
   if (document.startViewTransition) {
+    console.log("Using performViewTransition");
     await performViewTransition(href, container, options, animateFunction);
   } else {
+    console.log("Using performFallbackTransition");
     await performFallbackTransition(href, container, options, animateFunction);
   }
 
   if (pushState) {
+    console.log("Pushing state");
     history.pushState({ href }, "", href);
+  } else {
+    console.log("Updating DOM for back navigation");
+    await updateDOM(href, container, options, animateFunction);
   }
 }
 
@@ -191,6 +199,7 @@ function removeStyle(styleId: string): void {
  * view transition animation.
  */
 async function performViewTransition(href: string, container: Element, options: TransitionOptions, animateFunction: (element: Element, keyframes: Keyframe[], options: KeyframeAnimationOptions) => Animation): Promise<void> {
+  console.log("performViewTransition called");
   try {
     const styleId = addViewTransitionCSS(container, options);
     const transition = document.startViewTransition!(() => updateDOM(href, container, options, animateFunction));
@@ -210,6 +219,7 @@ async function performViewTransition(href: string, container: Element, options: 
  * transition animation.
  */
 async function performFallbackTransition(href: string, container: Element, options: TransitionOptions, animateFunction: (element: Element, keyframes: Keyframe[], options: KeyframeAnimationOptions) => Animation): Promise<void> {
+  console.log("performFallbackTransition called");
   const styleId = addViewTransitionCSS(container, options);
   try {
     const duration = options.duration;
@@ -221,6 +231,7 @@ async function performFallbackTransition(href: string, container: Element, optio
       iterations: options.iterations === "infinite" ? Infinity : options.iterations,
       fill: "forwards",
     };
+    console.log("Calling animateFunction for out animation");
     const outAnimation = animateFunction(container, outAnim.keyframes, animationOptions);
 
     if (outAnimation.finished) {
@@ -231,6 +242,7 @@ async function performFallbackTransition(href: string, container: Element, optio
 
     await updateDOM(href, container, options, animateFunction);
 
+    console.log("Calling animateFunction for in animation");
     const inAnimation = animateFunction(container, inAnim.keyframes, {
       duration: options.timeline === "sequential" ? duration / 2 : duration,
       easing: options.easing,
@@ -269,7 +281,8 @@ async function updateDOM(href: string, container: Element, options: TransitionOp
     }
 
     // Re-attach event listeners to the new content
-    setupTransition(container, options, animateFunction);
+    // Remove this line to prevent calling setupTransition again
+    // setupTransition(container, options, animateFunction);
   } catch (error) {
     console.error("Failed to update DOM:", error);
     window.location.href = href;

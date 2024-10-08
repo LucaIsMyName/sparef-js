@@ -72,11 +72,54 @@
 
     // src/transition.ts
     let styleCounter = 0;
+    class MockAnimation {
+        constructor() {
+            this.currentTime = 0;
+            this.effect = null;
+            this.id = "";
+            this.oncancel = null;
+            this.onfinish = null;
+            this.onremove = null;
+            this.pending = false;
+            this.playState = "idle";
+            this.playbackRate = 1;
+            this.replaceState = "active";
+            this.startTime = 0;
+            this.timeline = null;
+        }
+        // Implement finished and ready as getters
+        get finished() {
+            return Promise.resolve(this);
+        }
+        get ready() {
+            return Promise.resolve(this);
+        }
+        cancel() { }
+        commitStyles() { }
+        finish() { }
+        pause() { }
+        persist() { }
+        play() { }
+        reverse() { }
+        updatePlaybackRate(_playbackRate) { }
+        addEventListener(_type, _listener, _options) { }
+        removeEventListener(_type, _listener, _options) { }
+        dispatchEvent(_event) {
+            return false;
+        }
+    }
     /**
      * @description Set up
      * transition between pages.
      */
-    function setupTransition(container, options, animateFunction = (el, opts) => container.animate(el, opts)) {
+    function setupTransition(container, options, animateFunction = (element, keyframes, options) => {
+        if (typeof element.animate === "function") {
+            return element.animate(keyframes, options);
+        }
+        else {
+            return new MockAnimation();
+        }
+    }) {
         console.log("Setting up transition with options:", options);
         const links = container.querySelectorAll('a[href^="/"], a[href^="./"], a[href^="../"]');
         links.forEach((link) => {
@@ -84,15 +127,27 @@
                 e.preventDefault();
                 const href = link.getAttribute("href");
                 if (href) {
-                    if (document.startViewTransition) {
-                        performViewTransition(href, container, options, animateFunction);
-                    }
-                    else {
-                        performFallbackTransition(href, container, options, animateFunction);
-                    }
+                    navigateTo(href, container, options, animateFunction);
                 }
             });
         });
+        // Add popstate event listener for browser back/forward buttons
+        window.addEventListener("popstate", (event) => {
+            if (event.state && event.state.href) {
+                navigateTo(event.state.href, container, options, animateFunction, false);
+            }
+        });
+    }
+    async function navigateTo(href, container, options, animateFunction, pushState = true) {
+        if (document.startViewTransition) {
+            await performViewTransition(href, container, options, animateFunction);
+        }
+        else {
+            await performFallbackTransition(href, container, options, animateFunction);
+        }
+        if (pushState) {
+            history.pushState({ href }, "", href);
+        }
     }
     /**
      * @description Generate a CSS style
@@ -102,7 +157,7 @@
         function styleObjectToString(obj) {
             return Object.entries(obj)
                 .map(([key, value]) => {
-                if (typeof value === 'object') {
+                if (typeof value === "object") {
                     return `${kebabCase(key)}: ${styleObjectToString(value)};`;
                 }
                 return `${kebabCase(key)}: ${value};`;
@@ -111,7 +166,7 @@
         }
         return {
             from: styleObjectToString(animation.from),
-            to: styleObjectToString(animation.to)
+            to: styleObjectToString(animation.to),
         };
     }
     /**
@@ -191,30 +246,43 @@
      */
     async function performFallbackTransition(href, container, options, animateFunction) {
         const styleId = addViewTransitionCSS(container, options);
-        const duration = options.duration;
-        const outAnim = createKeyframeAnimation(options.out, `out-${styleId}`);
-        const inAnim = createKeyframeAnimation(options.in, `in-${styleId}`);
-        const animationOptions = {
-            duration: options.timeline === "sequential" ? duration / 2 : duration,
-            easing: options.easing,
-            iterations: options.iterations === "infinite" ? Infinity : options.iterations,
-            fill: "forwards",
-        };
-        const outAnimation = animateFunction(outAnim.keyframes, animationOptions);
-        await outAnimation.finished;
-        await updateDOM(href, container, options, animateFunction);
-        const inAnimation = animateFunction(inAnim.keyframes, {
-            duration: options.timeline === "sequential" ? duration / 2 : duration,
-            easing: options.easing,
-            iterations: 1,
-            fill: "forwards",
-        });
-        await inAnimation.finished;
-        removeStyle(styleId);
-        console.log("Fallback Transition complete");
+        try {
+            const duration = options.duration;
+            const outAnim = createKeyframeAnimation(options.out, `out-${styleId}`);
+            const inAnim = createKeyframeAnimation(options.in, `in-${styleId}`);
+            const animationOptions = {
+                duration: options.timeline === "sequential" ? duration / 2 : duration,
+                easing: options.easing,
+                iterations: options.iterations === "infinite" ? Infinity : options.iterations,
+                fill: "forwards",
+            };
+            const outAnimation = animateFunction(container, outAnim.keyframes, animationOptions);
+            if (outAnimation.finished) {
+                await outAnimation.finished;
+            }
+            else {
+                await new Promise((resolve) => setTimeout(resolve, animationOptions.duration));
+            }
+            await updateDOM(href, container, options, animateFunction);
+            const inAnimation = animateFunction(container, inAnim.keyframes, {
+                duration: options.timeline === "sequential" ? duration / 2 : duration,
+                easing: options.easing,
+                iterations: 1,
+                fill: "forwards",
+            });
+            if (inAnimation.finished) {
+                await inAnimation.finished;
+            }
+            else {
+                await new Promise((resolve) => setTimeout(resolve, duration / 2));
+            }
+        }
+        finally {
+            removeStyle(styleId);
+            console.log("Fallback Transition complete");
+        }
     }
     /**
-     *
      * @description Update the DOM
      * with new content.
      */
@@ -230,10 +298,9 @@
             if (newContent) {
                 container.innerHTML = newContent.innerHTML;
             }
-            // Update the URL without reloading the page
-            window.history.pushState({}, "", href);
             // Re-attach event listeners to the new content
-            setupTransition(container, options, animateFunction);
+            // Remove this line to prevent calling setupTransition again
+            // setupTransition(container, options, animateFunction);
         }
         catch (error) {
             console.error("Failed to update DOM:", error);
@@ -260,6 +327,7 @@
             active: false,
             event: "mouseover",
             delay: 0,
+            sameOrigin: true,
         },
         transition: {
             duration: 250,
