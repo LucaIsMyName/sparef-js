@@ -1,5 +1,7 @@
 # `sparef-js`
 
+*This Code is a Beta-Version*
+
 `sparef-js` is simple and small JS library that turns a multi-page app into a single-page app
 via CSS `::view-transitions` and a optional prefetch HTML API built in.
 
@@ -10,7 +12,7 @@ via CSS `::view-transitions` and a optional prefetch HTML API built in.
 ## use
 
 ```js
-import sparef from 'sparef-js';
+import sparef, { animate } from 'sparef-js';
 
 /**
  * Any <a> that is an internal link inside the <body> tag
@@ -51,6 +53,31 @@ sparef('body', {
     }
   }
 });
+
+/**
+ * Whatever the globally set transition would be, 
+ * the animate function overwrites this on the given element(s)
+ * if there are more than 1 header element in the html, it animates
+ * all of them.
+ */
+animate('header', {
+ in: {
+  from: {
+    tranform: 'translate(-100%)'
+  },
+  to: {
+    tranform: 'translate(0)'
+  }
+ },
+ out: {
+  from: {
+    tranform: 'translate(0)'
+  },
+  to: {
+    tranform: 'translate(-100%)'
+  }
+ }
+})
 ```
 ## License
 

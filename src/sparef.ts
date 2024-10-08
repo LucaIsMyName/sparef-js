@@ -1,7 +1,7 @@
 // src/sparef.ts
 
 import { setupPrefetch } from "./prefetch";
-import { setupTransition } from "./transition";
+import { setupTransition, animate } from "./transition";
 import { applyDefaults } from "./utils";
 import { SparefOptions, PrefetchOptions, TransitionOptions } from "./types";
 
@@ -30,7 +30,7 @@ const defaultOptions: SparefOptions = {
 };
 
 /**
- * 
+ *
  * @description Set up SPA transitions and prefetching.
  */
 export function sparef(selector: string | string[], options: Partial<SparefOptions> = {}): void {
@@ -52,4 +52,5 @@ export function sparef(selector: string | string[], options: Partial<SparefOptio
   });
 }
 
+export { animate };
 export default sparef;

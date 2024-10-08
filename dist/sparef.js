@@ -11,6 +11,7 @@ $parcel$defineInteropFlag(module.exports);
 
 $parcel$export(module.exports, "sparef", () => $41d6d52d9d8f742f$export$c77bd49b7cb4348a);
 $parcel$export(module.exports, "default", () => $41d6d52d9d8f742f$export$2e2bcd8739ae039);
+$parcel$export(module.exports, "animate", () => $48b09cc005396437$export$e3607ec2d7a891c4);
 // src/sparef.ts
 const $388f59c090300faa$var$prefetchedLinks = new Set();
 function $388f59c090300faa$var$isSameOrigin(href) {
@@ -69,6 +70,10 @@ function $9ba0f9a5c47c04f2$export$7428e6464c9e15e8(str) {
 }
 
 
+const $48b09cc005396437$var$customAnimations = new Map();
+function $48b09cc005396437$export$e3607ec2d7a891c4(selector, options) {
+    $48b09cc005396437$var$customAnimations.set(selector, options);
+}
 let $48b09cc005396437$var$styleCounter = 0;
 class $48b09cc005396437$var$MockAnimation {
     // Implement finished and ready as getters
@@ -108,8 +113,7 @@ class $48b09cc005396437$var$MockAnimation {
 }
 function $48b09cc005396437$export$f6cf5dea3b94971d(container, options, animateFunction = (element, keyframes, options)=>{
     if (typeof element.animate === "function") return element.animate(keyframes, options);
-    else // Fallback for environments where animate is not available (like jsdom)
-    return new $48b09cc005396437$var$MockAnimation();
+    else return new $48b09cc005396437$var$MockAnimation();
 }) {
     console.log("Setting up transition with options:", options);
     const links = container.querySelectorAll('a[href^="/"], a[href^="./"], a[href^="../"]');
@@ -123,14 +127,28 @@ function $48b09cc005396437$export$f6cf5dea3b94971d(container, options, animateFu
     // Add popstate event listener for browser back/forward buttons
     window.addEventListener("popstate", (event)=>{
         if (event.state && event.state.href) $48b09cc005396437$var$navigateTo(event.state.href, container, options, animateFunction, false);
+        else // If there's no state, assume it's a back navigation to the initial page
+        $48b09cc005396437$var$navigateTo(window.location.pathname, container, options, animateFunction, false);
     });
 }
 async function $48b09cc005396437$var$navigateTo(href, container, options, animateFunction, pushState = true) {
-    if (document.startViewTransition) await $48b09cc005396437$var$performViewTransition(href, container, options, animateFunction);
-    else await $48b09cc005396437$var$performFallbackTransition(href, container, options, animateFunction);
-    if (pushState) history.pushState({
-        href: href
-    }, "", href);
+    console.log(`navigateTo called with href: ${href}, pushState: ${pushState}`);
+    if (document.startViewTransition) {
+        console.log("Using performViewTransition");
+        await $48b09cc005396437$var$performViewTransition(href, container, options, animateFunction);
+    } else {
+        console.log("Using performFallbackTransition");
+        await $48b09cc005396437$var$performFallbackTransition(href, container, options, animateFunction);
+    }
+    if (pushState) {
+        console.log("Pushing state");
+        history.pushState({
+            href: href
+        }, "", href);
+    } else {
+        console.log("Updating DOM for back navigation");
+        await $48b09cc005396437$var$updateDOM(href, container, options, animateFunction);
+    }
 }
 function $48b09cc005396437$export$a53971ec246c2bc4(animation) {
     function styleObjectToString(obj) {
@@ -197,6 +215,7 @@ function $48b09cc005396437$export$a53971ec246c2bc4(animation) {
  * @description Perform a custom
  * view transition animation.
  */ async function $48b09cc005396437$var$performViewTransition(href, container, options, animateFunction) {
+    console.log("performViewTransition called");
     try {
         const styleId = $48b09cc005396437$var$addViewTransitionCSS(container, options);
         const transition = document.startViewTransition(()=>$48b09cc005396437$var$updateDOM(href, container, options, animateFunction));
@@ -213,29 +232,61 @@ function $48b09cc005396437$export$a53971ec246c2bc4(animation) {
  * @description Perform a fallback
  * transition animation.
  */ async function $48b09cc005396437$var$performFallbackTransition(href, container, options, animateFunction) {
+    console.log("performFallbackTransition called");
     const styleId = $48b09cc005396437$var$addViewTransitionCSS(container, options);
     try {
         const duration = options.duration;
+        // Animate custom elements first
+        for (const [selector, customOptions] of $48b09cc005396437$var$customAnimations){
+            const elements = container.querySelectorAll(selector);
+            elements.forEach((element)=>{
+                const mergedOptions = {
+                    ...options,
+                    ...customOptions
+                };
+                const outAnim = $48b09cc005396437$var$createKeyframeAnimation(mergedOptions.out || options.out, `out-${styleId}`);
+                const inAnim = $48b09cc005396437$var$createKeyframeAnimation(mergedOptions.in || options.in, `in-${styleId}`);
+                console.log("Animating custom element:", selector);
+                animateFunction(element, outAnim.keyframes, {
+                    duration: mergedOptions.timeline === "sequential" ? duration / 2 : duration,
+                    delay: mergedOptions.delay,
+                    easing: mergedOptions.easing,
+                    iterations: mergedOptions.iterations === "infinite" ? Infinity : mergedOptions.iterations,
+                    fill: "forwards"
+                });
+                setTimeout(()=>{
+                    animateFunction(element, inAnim.keyframes, {
+                        duration: mergedOptions.timeline === "sequential" ? duration / 2 : duration,
+                        delay: mergedOptions.delay,
+                        easing: mergedOptions.easing,
+                        iterations: mergedOptions.iterations === "infinite" ? Infinity : mergedOptions.iterations,
+                        fill: "forwards"
+                    });
+                }, mergedOptions.timeline === "sequential" ? duration / 2 : 0);
+            });
+        }
+        // Animate the container
         const outAnim = $48b09cc005396437$var$createKeyframeAnimation(options.out, `out-${styleId}`);
         const inAnim = $48b09cc005396437$var$createKeyframeAnimation(options.in, `in-${styleId}`);
-        const animationOptions = {
+        console.log("Animating container out");
+        animateFunction(container, outAnim.keyframes, {
             duration: options.timeline === "sequential" ? duration / 2 : duration,
+            delay: options.delay,
             easing: options.easing,
             iterations: options.iterations === "infinite" ? Infinity : options.iterations,
             fill: "forwards"
-        };
-        const outAnimation = animateFunction(container, outAnim.keyframes, animationOptions);
-        if (outAnimation.finished) await outAnimation.finished;
-        else await new Promise((resolve)=>setTimeout(resolve, animationOptions.duration));
+        });
+        await new Promise((resolve)=>setTimeout(resolve, options.timeline === "sequential" ? duration / 2 : 0));
         await $48b09cc005396437$var$updateDOM(href, container, options, animateFunction);
-        const inAnimation = animateFunction(container, inAnim.keyframes, {
+        console.log("Animating container in");
+        animateFunction(container, inAnim.keyframes, {
             duration: options.timeline === "sequential" ? duration / 2 : duration,
+            delay: options.delay,
             easing: options.easing,
-            iterations: 1,
+            iterations: options.iterations === "infinite" ? Infinity : options.iterations,
             fill: "forwards"
         });
-        if (inAnimation.finished) await inAnimation.finished;
-        else await new Promise((resolve)=>setTimeout(resolve, duration / 2));
+        await new Promise((resolve)=>setTimeout(resolve, duration));
     } finally{
         $48b09cc005396437$var$removeStyle(styleId);
         console.log("Fallback Transition complete");
@@ -254,8 +305,9 @@ function $48b09cc005396437$export$a53971ec246c2bc4(animation) {
         // Update the specific container content
         const newContent = newDocument.querySelector(container.tagName);
         if (newContent) container.innerHTML = newContent.innerHTML;
-        // Re-attach event listeners to the new content
-        $48b09cc005396437$export$f6cf5dea3b94971d(container, options, animateFunction);
+    // Re-attach event listeners to the new content
+    // Remove this line to prevent calling setupTransition again
+    // setupTransition(container, options, animateFunction);
     } catch (error) {
         console.error("Failed to update DOM:", error);
         window.location.href = href;

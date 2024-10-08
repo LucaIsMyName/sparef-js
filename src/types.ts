@@ -21,8 +21,8 @@ export interface TransitionStyles {
  * An animation object for transitioning between two states.
  */
 export interface TransitionAnimation {
-  from: TransitionStyles | any;
-  to: TransitionStyles | any;
+  from: Record<string, string | number>;
+  to: Record<string, string | number>;
 }
 
 /**
@@ -31,9 +31,9 @@ export interface TransitionAnimation {
 export interface TransitionOptions {
   duration: number;
   delay: number;
-  timeline: 'sequential' | 'parallel';
+  timeline: "sequential" | "parallel";
   easing: string;
-  iterations: number | 'infinite';
+  iterations: number | "infinite";
   out: TransitionAnimation;
   in: TransitionAnimation;
 }

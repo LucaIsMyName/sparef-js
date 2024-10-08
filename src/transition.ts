@@ -3,6 +3,11 @@
 import { TransitionOptions, TransitionAnimation, TransitionStyles } from "./types";
 import { kebabCase } from "./utils";
 
+const customAnimations = new Map<string, Partial<TransitionOptions>>();
+
+export function animate(selector: string, options: Partial<TransitionOptions>): void {
+  customAnimations.set(selector, options);
+}
 /**
  * @description Set up
  * transition between pages.
@@ -18,6 +23,7 @@ declare global {
 }
 
 let styleCounter = 0;
+
 class MockAnimation implements Animation {
   currentTime: number | null = 0;
   effect: AnimationEffect | null = null;
@@ -84,6 +90,7 @@ export function setupTransition(
       }
     });
   });
+
   // Add popstate event listener for browser back/forward buttons
   window.addEventListener("popstate", (event) => {
     if (event.state && event.state.href) {
@@ -223,38 +230,67 @@ async function performFallbackTransition(href: string, container: Element, optio
   const styleId = addViewTransitionCSS(container, options);
   try {
     const duration = options.duration;
+
+    // Animate custom elements first
+    for (const [selector, customOptions] of customAnimations) {
+      const elements = container.querySelectorAll(selector);
+      elements.forEach((element) => {
+        const mergedOptions = { ...options, ...customOptions };
+        const outAnim = createKeyframeAnimation(mergedOptions.out || options.out, `out-${styleId}`);
+        const inAnim = createKeyframeAnimation(mergedOptions.in || options.in, `in-${styleId}`);
+
+        console.log('Animating custom element:', selector);
+        animateFunction(element, outAnim.keyframes, {
+          duration: mergedOptions.timeline === "sequential" ? duration / 2 : duration,
+          delay: mergedOptions.delay,
+          easing: mergedOptions.easing,
+          iterations: mergedOptions.iterations === "infinite" ? Infinity : mergedOptions.iterations,
+          fill: "forwards",
+        });
+
+        setTimeout(
+          () => {
+            animateFunction(element, inAnim.keyframes, {
+              duration: mergedOptions.timeline === "sequential" ? duration / 2 : duration,
+              delay: mergedOptions.delay,
+              easing: mergedOptions.easing,
+              iterations: mergedOptions.iterations === "infinite" ? Infinity : mergedOptions.iterations,
+              fill: "forwards",
+            });
+          },
+          mergedOptions.timeline === "sequential" ? duration / 2 : 0
+        );
+      });
+    }
+
+    // Animate the container
     const outAnim = createKeyframeAnimation(options.out, `out-${styleId}`);
     const inAnim = createKeyframeAnimation(options.in, `in-${styleId}`);
-    const animationOptions: KeyframeAnimationOptions = {
+    
+    console.log('Animating container out');
+    animateFunction(container, outAnim.keyframes, {
       duration: options.timeline === "sequential" ? duration / 2 : duration,
+      delay: options.delay,
       easing: options.easing,
       iterations: options.iterations === "infinite" ? Infinity : options.iterations,
       fill: "forwards",
-    };
-    console.log("Calling animateFunction for out animation");
-    const outAnimation = animateFunction(container, outAnim.keyframes, animationOptions);
+    });
 
-    if (outAnimation.finished) {
-      await outAnimation.finished;
-    } else {
-      await new Promise((resolve) => setTimeout(resolve, animationOptions.duration as number));
-    }
+    await new Promise((resolve) => setTimeout(resolve, options.timeline === "sequential" ? duration / 2 : 0));
 
     await updateDOM(href, container, options, animateFunction);
 
-    console.log("Calling animateFunction for in animation");
-    const inAnimation = animateFunction(container, inAnim.keyframes, {
+    console.log('Animating container in');
+    animateFunction(container, inAnim.keyframes, {
       duration: options.timeline === "sequential" ? duration / 2 : duration,
+      delay: options.delay,
       easing: options.easing,
-      iterations: 1,
+      iterations: options.iterations === "infinite" ? Infinity : options.iterations,
       fill: "forwards",
     });
 
-    if (inAnimation.finished) {
-      await inAnimation.finished;
-    } else {
-      await new Promise((resolve) => setTimeout(resolve, duration / 2));
-    }
+    await new Promise((resolve) => setTimeout(resolve, duration));
+
   } finally {
     removeStyle(styleId);
     console.log("Fallback Transition complete");

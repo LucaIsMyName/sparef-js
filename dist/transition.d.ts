@@ -1,4 +1,5 @@
 import { TransitionOptions, TransitionAnimation } from "./types";
+export declare function animate(selector: string, options: Partial<TransitionOptions>): void;
 /**
  * @description Set up
  * transition between pages.

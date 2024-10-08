@@ -71,6 +71,10 @@
     }
 
     // src/transition.ts
+    const customAnimations = new Map();
+    function animate(selector, options) {
+        customAnimations.set(selector, options);
+    }
     let styleCounter = 0;
     class MockAnimation {
         constructor() {
@@ -136,17 +140,29 @@
             if (event.state && event.state.href) {
                 navigateTo(event.state.href, container, options, animateFunction, false);
             }
+            else {
+                // If there's no state, assume it's a back navigation to the initial page
+                navigateTo(window.location.pathname, container, options, animateFunction, false);
+            }
         });
     }
     async function navigateTo(href, container, options, animateFunction, pushState = true) {
+        console.log(`navigateTo called with href: ${href}, pushState: ${pushState}`);
         if (document.startViewTransition) {
+            console.log("Using performViewTransition");
             await performViewTransition(href, container, options, animateFunction);
         }
         else {
+            console.log("Using performFallbackTransition");
             await performFallbackTransition(href, container, options, animateFunction);
         }
         if (pushState) {
+            console.log("Pushing state");
             history.pushState({ href }, "", href);
+        }
+        else {
+            console.log("Updating DOM for back navigation");
+            await updateDOM(href, container);
         }
     }
     /**
@@ -227,6 +243,7 @@
      * view transition animation.
      */
     async function performViewTransition(href, container, options, animateFunction) {
+        console.log("performViewTransition called");
         try {
             const styleId = addViewTransitionCSS(container, options);
             const transition = document.startViewTransition(() => updateDOM(href, container, options, animateFunction));
@@ -245,37 +262,58 @@
      * transition animation.
      */
     async function performFallbackTransition(href, container, options, animateFunction) {
+        console.log("performFallbackTransition called");
         const styleId = addViewTransitionCSS(container, options);
         try {
             const duration = options.duration;
+            // Animate custom elements first
+            for (const [selector, customOptions] of customAnimations) {
+                const elements = container.querySelectorAll(selector);
+                elements.forEach((element) => {
+                    const mergedOptions = Object.assign(Object.assign({}, options), customOptions);
+                    const outAnim = createKeyframeAnimation(mergedOptions.out || options.out, `out-${styleId}`);
+                    const inAnim = createKeyframeAnimation(mergedOptions.in || options.in, `in-${styleId}`);
+                    console.log('Animating custom element:', selector);
+                    animateFunction(element, outAnim.keyframes, {
+                        duration: mergedOptions.timeline === "sequential" ? duration / 2 : duration,
+                        delay: mergedOptions.delay,
+                        easing: mergedOptions.easing,
+                        iterations: mergedOptions.iterations === "infinite" ? Infinity : mergedOptions.iterations,
+                        fill: "forwards",
+                    });
+                    setTimeout(() => {
+                        animateFunction(element, inAnim.keyframes, {
+                            duration: mergedOptions.timeline === "sequential" ? duration / 2 : duration,
+                            delay: mergedOptions.delay,
+                            easing: mergedOptions.easing,
+                            iterations: mergedOptions.iterations === "infinite" ? Infinity : mergedOptions.iterations,
+                            fill: "forwards",
+                        });
+                    }, mergedOptions.timeline === "sequential" ? duration / 2 : 0);
+                });
+            }
+            // Animate the container
             const outAnim = createKeyframeAnimation(options.out, `out-${styleId}`);
             const inAnim = createKeyframeAnimation(options.in, `in-${styleId}`);
-            const animationOptions = {
+            console.log('Animating container out');
+            animateFunction(container, outAnim.keyframes, {
                 duration: options.timeline === "sequential" ? duration / 2 : duration,
+                delay: options.delay,
                 easing: options.easing,
                 iterations: options.iterations === "infinite" ? Infinity : options.iterations,
                 fill: "forwards",
-            };
-            const outAnimation = animateFunction(container, outAnim.keyframes, animationOptions);
-            if (outAnimation.finished) {
-                await outAnimation.finished;
-            }
-            else {
-                await new Promise((resolve) => setTimeout(resolve, animationOptions.duration));
-            }
+            });
+            await new Promise((resolve) => setTimeout(resolve, options.timeline === "sequential" ? duration / 2 : 0));
             await updateDOM(href, container, options, animateFunction);
-            const inAnimation = animateFunction(container, inAnim.keyframes, {
+            console.log('Animating container in');
+            animateFunction(container, inAnim.keyframes, {
                 duration: options.timeline === "sequential" ? duration / 2 : duration,
+                delay: options.delay,
                 easing: options.easing,
-                iterations: 1,
+                iterations: options.iterations === "infinite" ? Infinity : options.iterations,
                 fill: "forwards",
             });
-            if (inAnimation.finished) {
-                await inAnimation.finished;
-            }
-            else {
-                await new Promise((resolve) => setTimeout(resolve, duration / 2));
-            }
+            await new Promise((resolve) => setTimeout(resolve, duration));
         }
         finally {
             removeStyle(styleId);
@@ -365,6 +403,7 @@
         });
     }
 
+    exports.animate = animate;
     exports["default"] = sparef;
     exports.sparef = sparef;
 
